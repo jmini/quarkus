@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.gradle.api.Project;
 import org.gradle.api.Task;
@@ -487,6 +488,26 @@ public class GradleApplicationModelBuilder implements ParameterizedToolingModelB
                 t -> configureCompileTask(t.getSource(), t.getDestinationDirectory(), allClassesDirs, sourceDirs, t));
 
         maybeConfigureKotlinJvmCompile(project, allClassesDirs, sourceDirs);
+
+        // some classesDir might be missing because the task was not found:
+        // see https://github.com/quarkusio/quarkus/issues/35577
+        final List<Path> existingSourceDirs = sourceDirs.stream().map(SourceDir::getOutputDir).collect(Collectors.toList());
+        allClassesDirs.getFiles().stream()
+                .filter(f -> f.exists())
+                .filter(f -> !existingSourceDirs.contains(f.toPath()))
+                .forEach(f -> {
+                    ((org.gradle.api.file.ConfigurableFileCollection) allClassesDirs).getBuiltBy().forEach(t -> {
+                        Task task = (Task) (((org.gradle.api.tasks.TaskProvider<?>) t).get());
+                        task.getInputs().getSourceFiles().getAsFileTree().visit(a -> {
+                            // we are looking for the root dirs containing sources
+                            if (a.getRelativePath().getSegments().length == 1) {
+                                final File srcDir = a.getFile().getParentFile();
+                                sourceDirs.add(
+                                        new DefaultSourceDir(srcDir.toPath(), f.toPath(), Map.of("compiler", task.getName())));
+                            }
+                        });
+                    });
+                });
 
         final LinkedHashMap<File, Path> resourceDirs = new LinkedHashMap<>(1);
         final File resourcesOutputDir = sourceSet.getOutput().getResourcesDir();
