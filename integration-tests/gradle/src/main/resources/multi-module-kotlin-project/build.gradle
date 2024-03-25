@@ -1,22 +1,3 @@
-plugins {
-    id 'org.jetbrains.kotlin.jvm'
-    id 'org.jetbrains.kotlin.plugin.allopen'
-    id 'io.quarkus'
-}
-
-dependencies {
-    implementation(project(":port"))
-    implementation(project(":domain"))
-    implementation project(path: ':web', configuration: 'default')
-}
-
-allOpen {
-    annotation("jakarta.ws.rs.Path")
-    annotation("jakarta.enterprise.context.ApplicationScoped")
-    annotation("jakarta.persistence.Entity")
-    annotation("io.quarkus.test.junit.QuarkusTest")
-}
-
 allprojects {
     group 'org.acme'
     version '1.0.0-SNAPSHOT'
